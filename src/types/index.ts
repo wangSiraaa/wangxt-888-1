@@ -70,6 +70,16 @@ export interface ValidationResult {
   error?: string;
 }
 
+export type CandidateSortBy = 'recommend' | 'sizeFit' | 'location' | 'rowAsc' | 'rowDesc';
+
+export interface CandidateLocker {
+  locker: LockerCell;
+  score: number;
+  sizeFitLevel: number;
+  distanceScore: number;
+  recommendReason: string;
+}
+
 export const OVERTIME_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
 export const SIZE_CAPACITY: Record<SizeType, { width: number; height: number; depth: number }> = {

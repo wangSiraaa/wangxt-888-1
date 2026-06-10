@@ -15,6 +15,8 @@ import {
   ValidationResult,
   OVERTIME_THRESHOLD_MS,
   COURIERS,
+  CandidateLocker,
+  CandidateSortBy,
 } from '@/types';
 
 function generateLockers(): LockerCell[] {
@@ -144,6 +146,7 @@ interface LockerStore {
   refreshOvertimeStatus: () => void;
   getOvertimeLockers: () => LockerCell[];
   getFilteredLockers: () => LockerCell[];
+  getCandidateLockers: (parcelSize: SizeType, sortBy?: CandidateSortBy, excludeLockerId?: string) => CandidateLocker[];
 }
 
 export const useLockerStore = create<LockerStore>()(
@@ -524,6 +527,86 @@ export const useLockerStore = create<LockerStore>()(
           }
 
           return result;
+        },
+
+        getCandidateLockers: (parcelSize, sortBy = 'recommend', excludeLockerId) => {
+          const state = get();
+          const sizeOrder: SizeType[] = ['S', 'M', 'L'];
+          const parcelSizeIdx = sizeOrder.indexOf(parcelSize);
+          const totalRows = 8;
+          const totalCols = 6;
+          const centerRow = (totalRows - 1) / 2;
+          const centerCol = (totalCols - 1) / 2;
+
+          const candidates = state.lockers
+            .filter((l) => {
+              if (l.status !== 'idle') return false;
+              if (state.exceptions[l.id]) return false;
+              if (excludeLockerId && l.id === excludeLockerId) return false;
+              const lockerSizeIdx = sizeOrder.indexOf(l.size);
+              return lockerSizeIdx >= parcelSizeIdx;
+            })
+            .map((l) => {
+              const lockerSizeIdx = sizeOrder.indexOf(l.size);
+              const sizeFitLevel = lockerSizeIdx - parcelSizeIdx;
+              const sizeFitScore = sizeFitLevel === 0 ? 100 : sizeFitLevel === 1 ? 70 : 40;
+
+              const distance = Math.sqrt(
+                Math.pow(l.row - centerRow, 2) + Math.pow(l.col - centerCol, 2)
+              );
+              const maxDistance = Math.sqrt(
+                Math.pow(totalRows - 1 - centerRow, 2) + Math.pow(totalCols - 1 - centerCol, 2)
+              );
+              const distanceScore = Math.round((1 - distance / maxDistance) * 100);
+
+              const rowScore = Math.round((1 - l.row / (totalRows - 1)) * 100);
+
+              const score = Math.round(sizeFitScore * 0.5 + distanceScore * 0.3 + rowScore * 0.2);
+
+              let recommendReason = '';
+              if (sizeFitLevel === 0) {
+                recommendReason = '尺寸完美匹配';
+              } else if (sizeFitLevel === 1) {
+                recommendReason = '尺寸适中，空间充裕';
+              } else {
+                recommendReason = '空间宽敞，适合大件';
+              }
+              if (distanceScore > 70) {
+                recommendReason += ' · 位置居中';
+              }
+              if (l.row < 3) {
+                recommendReason += ' · 取放方便';
+              }
+
+              return {
+                locker: l,
+                score,
+                sizeFitLevel,
+                distanceScore,
+                recommendReason,
+              };
+            });
+
+          switch (sortBy) {
+            case 'sizeFit':
+              candidates.sort((a, b) => a.sizeFitLevel - b.sizeFitLevel || a.score - b.score);
+              break;
+            case 'location':
+              candidates.sort((a, b) => b.distanceScore - a.distanceScore || a.score - b.score);
+              break;
+            case 'rowAsc':
+              candidates.sort((a, b) => a.locker.row - b.locker.row || a.locker.col - b.locker.col);
+              break;
+            case 'rowDesc':
+              candidates.sort((a, b) => b.locker.row - a.locker.row || a.locker.col - b.locker.col);
+              break;
+            case 'recommend':
+            default:
+              candidates.sort((a, b) => b.score - a.score || a.sizeFitLevel - b.sizeFitLevel);
+              break;
+          }
+
+          return candidates;
         },
       };
     },

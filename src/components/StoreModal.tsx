@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { X, Package, User, Ruler, Target, AlertCircle, CheckCircle2, Box } from 'lucide-react';
+import { X, Package, User, Ruler, Target, AlertCircle, CheckCircle2, Box, ChevronDown, ChevronUp, GitCompare } from 'lucide-react';
 import { useLockerStore } from '@/store/useLockerStore';
 import { SizeType, COURIERS, SIZE_LABEL, SIZE_CAPACITY } from '@/types';
+import CandidateCompare from './CandidateCompare';
 
 interface Props {
   onClose: () => void;
@@ -13,6 +14,7 @@ export default function StoreModal({ onClose }: Props) {
   const [courier, setCourier] = useState(COURIERS[0]);
   const [targetLockerId, setTargetLockerId] = useState<string>('');
   const [submitted, setSubmitted] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
 
   const validateStoreParcel = useLockerStore((s) => s.validateStoreParcel);
   const storeParcel = useLockerStore((s) => s.storeParcel);
@@ -171,10 +173,26 @@ export default function StoreModal({ onClose }: Props) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5 flex items-center gap-1.5">
-              <Target className="w-3.5 h-3.5 text-cyan-400" />
-              目标柜格（可选）
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-cyan-400" />
+                目标柜格（可选）
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowCompare(!showCompare)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all border
+                  ${showCompare
+                    ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300'
+                    : 'bg-slate-800/70 border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300'
+                  }`}
+                id="btn-toggle-compare"
+              >
+                <GitCompare className="w-3 h-3" />
+                候选对比
+                {showCompare ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </button>
+            </div>
             <select
               value={targetLockerId}
               onChange={(e) => {
@@ -200,6 +218,19 @@ export default function StoreModal({ onClose }: Props) {
                     {suggestLocker.code} · {SIZE_LABEL[suggestLocker.size]} · 第{suggestLocker.row + 1}行
                   </p>
                 </div>
+              </div>
+            )}
+
+            {showCompare && (
+              <div className="mt-4 pt-4 border-t border-slate-700">
+                <CandidateCompare
+                  parcelSize={size}
+                  selectedLockerId={targetLockerId || (suggestLocker?.id || '')}
+                  onSelectLocker={(id) => {
+                    setTargetLockerId(id);
+                    setSubmitted(false);
+                  }}
+                />
               </div>
             )}
           </div>
