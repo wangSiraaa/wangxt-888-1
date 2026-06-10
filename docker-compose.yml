@@ -1,0 +1,21 @@
+services:
+  locker-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: locker-management
+    ports:
+      - "${APP_PORT:-8080}:80"
+    restart: unless-stopped
+    networks:
+      - locker-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+networks:
+  locker-net:
+    driver: bridge
